@@ -23,7 +23,7 @@ type RouletteStart struct {
 	rouletteRep    repository.RouletteRepository
 	rouletteBetRep repository.RouletteBetRepository
 	cache          *cache.Cache
-	pusher         *event.PusherEvent
+	event          *event.PusherEvent
 	rouletteRoller *RouletteRoller
 	balance        balance.Interface
 }
@@ -32,14 +32,14 @@ func NewRouletteStart(
 	log *slog.Logger,
 	rouletteRep repository.RouletteRepository,
 	rouletteBetRep repository.RouletteBetRepository,
-	pusherClient *event.PusherEvent,
+	eventClient *event.PusherEvent,
 	rouletteRoller *RouletteRoller) *RouletteStart {
 	return &RouletteStart{
 		log:            log,
 		rouletteRep:    rouletteRep,
 		rouletteBetRep: rouletteBetRep,
 		cache:          cache.New(5*time.Minute, 10*time.Minute),
-		pusher:         pusherClient,
+		event:          eventClient,
 		rouletteRoller: rouletteRoller,
 	}
 }
@@ -128,9 +128,51 @@ func (s *RouletteStart) New() http.HandlerFunc {
 
 		log.Info("winners handled")
 
-		job.Dispatch(&RouletteUpdatePlayedAtJob{rouletteID: rouletteID}, 15*time.Second)
-		job.Dispatch(&RouletteWinnerJob{winColor: winColorAndNumberData.Color, winNumber: winColorAndNumberData.Number}, 15*time.Second)
+		eventMessage := event.Message{
+			Channel: "roulette",
+			Event:   "test",
+			Data: map[string]interface{}{
+				"uuid":       roulette.UUID.String(),
+				"created_at": roulette.CreatedAt,
+				"round":      roulette.Round,
+			},
+		}
+		job.Dispatch(&job.SendEventJob{EventMessage: eventMessage, Event: s.event}, 15*time.Second)
+
+		job.Dispatch(&RouletteStartJob{RouletteStart: s, RouletteID: rouletteID}, 15*time.Second)
 	}
+}
+
+func (s *RouletteStart) UpdateRouletteUpdateAt(rouletteID int64) {
+	const op = "handlers.roulette.start.UpdateRouletteUpdateAt"
+
+	var (
+		err      error
+		log      *slog.Logger
+		roulette *model.Roulette
+	)
+
+	log = s.log.With(
+		slog.String("op", op),
+	)
+
+	now := time.Now()
+
+	roulette = &model.Roulette{
+		ID:       rouletteID,
+		PlayedAt: &now,
+	}
+
+	err = s.rouletteRep.UpdateRoulettePlayedAt(roulette)
+	if err != nil {
+		log.Error("failed to update roulette", sl.Err(err))
+
+		return
+	}
+
+	log.Info("roulette updated", sl.Any("roulette", roulette))
+
+	return
 }
 
 func (s *RouletteStart) getRoundFromCacheOrDB() int64 {
@@ -169,17 +211,17 @@ func (s *RouletteStart) updateCacheRound(round int64) {
 func (s *RouletteStart) sendNewRoundEvent(roulette *model.Roulette) error {
 	data := map[string]interface{}{
 		"uuid":       roulette.UUID.String(),
-		"created_at": roulette.CreatedAt.Format(time.RFC3339),
+		"created_at": roulette.CreatedAt,
 		"round":      roulette.Round,
 	}
 
 	message := event.Message{
-		Channel: "balance-channel",
-		Event:   "outcome-event",
+		Channel: "roulette",
+		Event:   "start",
 		Data:    data,
 	}
 
-	return s.pusher.TriggerEvent(message)
+	return s.event.TriggerEvent(message)
 }
 
 func (s *RouletteStart) handleWinners(rouletteID int64, color config.Color) error {

@@ -8,6 +8,14 @@ type Job interface {
 	Execute()
 }
 
+type WorkerPool struct {
+	workers []Worker
+}
+
+type Worker struct {
+	jobQueue JobQueue
+}
+
 type JobQueue chan Job
 
 var Queue JobQueue
@@ -17,10 +25,6 @@ func Dispatch(job Job, delay time.Duration) {
 		<-time.After(delay)
 		Queue <- job
 	}()
-}
-
-type WorkerPool struct {
-	workers []Worker
 }
 
 func NewWorkerPool(size int, queue JobQueue) *WorkerPool {
@@ -35,10 +39,6 @@ func (p *WorkerPool) Start() {
 	for _, worker := range p.workers {
 		worker.Start()
 	}
-}
-
-type Worker struct {
-	jobQueue JobQueue
 }
 
 func NewWorker(jobQueue JobQueue) Worker {

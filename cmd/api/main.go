@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/gorilla/websocket"
 	"go-outpost/internal/api/http-server/handlers/event"
+	"go-outpost/internal/api/http-server/handlers/job"
 	"go-outpost/internal/api/http-server/handlers/mysql"
 	"go-outpost/internal/api/http-server/handlers/provably_fair"
 	"go-outpost/internal/api/http-server/handlers/roulette/bet/save"
@@ -64,6 +65,11 @@ func main() {
 			log.Error("Failed to init storage", sl.Err(err))
 		}
 	}(conn)
+
+	queue := make(job.JobQueue, 100)     // Указать максимальный размер очереди
+	pool := job.NewWorkerPool(10, queue) // Создать пул рабочих, указав размер пула и очередь
+	pool.Start()                         // Запуск пул рабочих
+	job.Queue = queue                    // Установка очереди задач
 
 	pusherEvent := event.NewPusherEvent(log, conn)
 

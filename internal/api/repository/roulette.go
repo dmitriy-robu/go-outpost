@@ -87,7 +87,7 @@ func (repo *RouletteRepository) GetLastRound() (int64, error) {
 func (repo *RouletteRepository) GetRouletteByID(id int64) (*model.Roulette, error) {
 	const op = "repository.roulette.GetRouletteByID"
 
-	const query = "SELECT id,uuid,round,played_at FROM roulettes WHERE id = ?"
+	const query = "SELECT id,uuid,round,played_at,created_at FROM roulettes WHERE id = ?"
 
 	row, err := repo.dbhandler.PrepareAndQueryRow(query, id)
 	if err != nil {
@@ -96,7 +96,7 @@ func (repo *RouletteRepository) GetRouletteByID(id int64) (*model.Roulette, erro
 
 	roulette := &model.Roulette{}
 
-	err = row.Scan(&roulette.ID, &roulette.UUID, &roulette.Round, &roulette.PlayedAt)
+	err = row.Scan(&roulette.ID, &roulette.UUID, &roulette.Round, &roulette.PlayedAt, &roulette.CreatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -106,4 +106,17 @@ func (repo *RouletteRepository) GetRouletteByID(id int64) (*model.Roulette, erro
 	}
 
 	return roulette, nil
+}
+
+func (repo *RouletteRepository) UpdateRoulettePlayedAt(roulette *model.Roulette) error {
+	const op = "repository.roulette.UpdateRoulettePlayedAt"
+
+	const query = "UPDATE roulettes SET played_at = ? WHERE id = ?"
+
+	_, err := repo.dbhandler.PrepareAndExecute(query, roulette.PlayedAt, roulette.ID)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
 }
