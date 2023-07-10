@@ -130,6 +130,8 @@ func (s *RouletteStart) New() http.HandlerFunc {
 			return
 		}
 
+		log.Info("winners handled")
+
 		job.Dispatch(&RouletteUpdatePlayedAtJob{rouletteID: rouletteID}, 15*time.Second)
 		job.Dispatch(&RouletteWinnerJob{winColor: winColorAndNumberData.Color, winNumber: winColorAndNumberData.Number}, 15*time.Second)
 	}
