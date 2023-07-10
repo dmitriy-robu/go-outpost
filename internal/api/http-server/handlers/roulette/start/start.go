@@ -5,14 +5,14 @@ import (
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
 	"github.com/patrickmn/go-cache"
-	"go-outpost/internal/config"
-	"go-outpost/internal/http-server/handlers/event"
-	"go-outpost/internal/http-server/handlers/job"
-	"go-outpost/internal/http-server/handlers/user/balance"
-	"go-outpost/internal/http-server/model"
+	config2 "go-outpost/internal/api/config"
+	"go-outpost/internal/api/http-server/handlers/event"
+	"go-outpost/internal/api/http-server/handlers/job"
+	"go-outpost/internal/api/http-server/handlers/user/balance"
+	model2 "go-outpost/internal/api/http-server/model"
+	repository2 "go-outpost/internal/api/repository"
 	resp "go-outpost/internal/lib/api/response"
 	"go-outpost/internal/lib/logger/sl"
-	"go-outpost/internal/repository"
 	"golang.org/x/exp/slog"
 	"net/http"
 	"time"
@@ -20,8 +20,8 @@ import (
 
 type RouletteStart struct {
 	log            *slog.Logger
-	rouletteRep    repository.RouletteRepository
-	rouletteBetRep repository.RouletteBetRepository
+	rouletteRep    repository2.RouletteRepository
+	rouletteBetRep repository2.RouletteBetRepository
 	cache          *cache.Cache
 	pusher         *event.PusherEvent
 	rouletteRoller *RouletteRoller
@@ -30,8 +30,8 @@ type RouletteStart struct {
 
 func NewRouletteStart(
 	log *slog.Logger,
-	rouletteRep repository.RouletteRepository,
-	rouletteBetRep repository.RouletteBetRepository,
+	rouletteRep repository2.RouletteRepository,
+	rouletteBetRep repository2.RouletteBetRepository,
 	pusherClient *event.PusherEvent,
 	rouletteRoller *RouletteRoller) *RouletteStart {
 	return &RouletteStart{
@@ -51,7 +51,7 @@ func (s *RouletteStart) New() http.HandlerFunc {
 		var (
 			err                   error
 			log                   *slog.Logger
-			roulette              *model.Roulette
+			roulette              *model2.Roulette
 			winColorAndNumberData *RouletteWinColorAndNumberData
 			rouletteID            int64
 		)
@@ -62,7 +62,7 @@ func (s *RouletteStart) New() http.HandlerFunc {
 
 		round := s.getRoundFromCacheOrDB()
 
-		roulette = &model.Roulette{
+		roulette = &model2.Roulette{
 			UUID:  uuid.New(),
 			Round: round,
 		}
@@ -166,7 +166,7 @@ func (s *RouletteStart) updateCacheRound(round int64) {
 	return
 }
 
-func (s *RouletteStart) sendNewRoundEvent(roulette *model.Roulette) error {
+func (s *RouletteStart) sendNewRoundEvent(roulette *model2.Roulette) error {
 	data := map[string]interface{}{
 		"uuid":       roulette.UUID.String(),
 		"created_at": roulette.CreatedAt.Format(time.RFC3339),
@@ -182,12 +182,12 @@ func (s *RouletteStart) sendNewRoundEvent(roulette *model.Roulette) error {
 	return s.pusher.TriggerEvent(message)
 }
 
-func (s *RouletteStart) handleWinners(rouletteID int64, color config.Color) error {
+func (s *RouletteStart) handleWinners(rouletteID int64, color config2.Color) error {
 	const op = "handlers.roulette.start.handleWinners"
 
 	var (
 		err        error
-		bets       []model.RouletteBet
+		bets       []model2.RouletteBet
 		multiplier int
 	)
 
@@ -201,7 +201,7 @@ func (s *RouletteStart) handleWinners(rouletteID int64, color config.Color) erro
 	multiplier = s.GetMultiplierByColor(color)
 
 	for _, winner := range bets {
-		if err = s.balance.Income(winner.UserID, winner.Amount*multiplier, config.Roulette); err != nil {
+		if err = s.balance.Income(winner.UserID, winner.Amount*multiplier, config2.Roulette); err != nil {
 			s.log.Error("failed to income user balance", sl.Err(err))
 
 			return fmt.Errorf("%s: %w", op, err)
@@ -211,8 +211,8 @@ func (s *RouletteStart) handleWinners(rouletteID int64, color config.Color) erro
 	return nil
 }
 
-func (s *RouletteStart) GetMultiplierByColor(color config.Color) int {
-	colorConfig, ok := config.RouletteWheelConfig.Colors[color]
+func (s *RouletteStart) GetMultiplierByColor(color config2.Color) int {
+	colorConfig, ok := config2.RouletteWheelConfig.Colors[color]
 	if !ok {
 		return 0
 	}

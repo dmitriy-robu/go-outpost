@@ -2,11 +2,11 @@ package balance
 
 import (
 	"fmt"
-	"go-outpost/internal/config"
-	"go-outpost/internal/http-server/handlers/event"
-	"go-outpost/internal/http-server/model"
+	config2 "go-outpost/internal/api/config"
+	"go-outpost/internal/api/http-server/handlers/event"
+	model2 "go-outpost/internal/api/http-server/model"
+	"go-outpost/internal/api/repository"
 	"go-outpost/internal/lib/converter"
-	"go-outpost/internal/repository"
 	"golang.org/x/exp/slog"
 	"strconv"
 )
@@ -18,8 +18,8 @@ type Balance struct {
 }
 
 type Interface interface {
-	Income(userID int64, amount int, game config.Game) error
-	Outcome(userID int64, amount int, game config.Game) error
+	Income(userID int64, amount int, game config2.Game) error
+	Outcome(userID int64, amount int, game config2.Game) error
 }
 
 func NewBalance(
@@ -33,13 +33,13 @@ func NewBalance(
 	}
 }
 
-func (b *Balance) Income(userID int64, amount int, game config.Game) error {
+func (b *Balance) Income(userID int64, amount int, game config2.Game) error {
 	const op = "handlers.user.balance.Income"
 
 	var (
 		err         error
-		user        *model.User
-		userBalance *model.UserBalance
+		user        *model2.User
+		userBalance *model2.UserBalance
 		message     event.Message
 	)
 
@@ -51,7 +51,7 @@ func (b *Balance) Income(userID int64, amount int, game config.Game) error {
 
 	b.log.Info("user balance updated")
 
-	if err = b.userRep.CreateUserBalanceTransaction(userID, amount, config.Income, game); err != nil {
+	if err = b.userRep.CreateUserBalanceTransaction(userID, amount, config2.Income, game); err != nil {
 		b.log.Error("failed to create user balance transaction")
 
 		return fmt.Errorf("%s: %w", op, err)
@@ -83,8 +83,8 @@ func (b *Balance) Income(userID int64, amount int, game config.Game) error {
 		Data: map[string]interface{}{
 			"user_uuid":      user.UUID,
 			"amount":         strconv.Itoa(amount),
-			"operation_type": config.Income,
-			"module":         config.Roulette,
+			"operation_type": config2.Income,
+			"module":         config2.Roulette,
 			"balance":        converter.ConvertAmountIntToSting(userBalance.Balance),
 		},
 	}
@@ -93,13 +93,13 @@ func (b *Balance) Income(userID int64, amount int, game config.Game) error {
 
 }
 
-func (b *Balance) Outcome(userID int64, amount int, game config.Game) error {
+func (b *Balance) Outcome(userID int64, amount int, game config2.Game) error {
 	const op = "handlers.user.balance.Outcome"
 
 	var (
 		err         error
-		user        *model.User
-		userBalance *model.UserBalance
+		user        *model2.User
+		userBalance *model2.UserBalance
 		message     event.Message
 	)
 
@@ -111,7 +111,7 @@ func (b *Balance) Outcome(userID int64, amount int, game config.Game) error {
 
 	b.log.Info("user balance updated")
 
-	if err = b.userRep.CreateUserBalanceTransaction(userID, amount, config.Outcome, game); err != nil {
+	if err = b.userRep.CreateUserBalanceTransaction(userID, amount, config2.Outcome, game); err != nil {
 		b.log.Error("failed to create user balance transaction")
 
 		return fmt.Errorf("%s: %w", op, err)
@@ -143,8 +143,8 @@ func (b *Balance) Outcome(userID int64, amount int, game config.Game) error {
 		Data: map[string]interface{}{
 			"user_uuid":      user.UUID,
 			"amount":         strconv.Itoa(amount),
-			"operation_type": config.Outcome,
-			"module":         config.Roulette,
+			"operation_type": config2.Outcome,
+			"module":         config2.Roulette,
 			"balance":        converter.ConvertAmountIntToSting(userBalance.Balance),
 		},
 	}

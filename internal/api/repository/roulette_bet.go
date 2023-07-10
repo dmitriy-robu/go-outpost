@@ -2,9 +2,9 @@ package repository
 
 import (
 	"fmt"
-	"go-outpost/internal/config"
-	"go-outpost/internal/http-server/handlers/mysql"
-	"go-outpost/internal/http-server/model"
+	"go-outpost/internal/api/config"
+	"go-outpost/internal/api/http-server/handlers/mysql"
+	"go-outpost/internal/api/http-server/model"
 	"time"
 )
 

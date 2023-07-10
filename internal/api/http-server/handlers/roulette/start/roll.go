@@ -3,16 +3,16 @@ package start
 import (
 	"fmt"
 	"github.com/google/uuid"
-	"go-outpost/internal/config"
-	"go-outpost/internal/http-server/handlers/provably_fair"
-	"go-outpost/internal/http-server/model"
+	config2 "go-outpost/internal/api/config"
+	"go-outpost/internal/api/http-server/handlers/provably_fair"
+	"go-outpost/internal/api/http-server/model"
+	"go-outpost/internal/api/repository"
 	"go-outpost/internal/lib/logger/sl"
-	"go-outpost/internal/repository"
 	"golang.org/x/exp/slog"
 )
 
 type RouletteRoller struct {
-	RouletteColors           map[config.Color]config.RouletteColorConfig
+	RouletteColors           map[config2.Color]config2.RouletteColorConfig
 	ProvablyFair             *provably_fair.ProvablyFair
 	RouletteWinnerRepository repository.RouletteWinnerRepository
 	log                      *slog.Logger
@@ -24,7 +24,7 @@ func NewRouletteRoller(
 	log *slog.Logger,
 ) *RouletteRoller {
 	return &RouletteRoller{
-		RouletteColors:           config.RouletteWheelConfig.Colors,
+		RouletteColors:           config2.RouletteWheelConfig.Colors,
 		ProvablyFair:             ProvablyFair,
 		RouletteWinnerRepository: RouletteWinnerRepository,
 		log:                      log,
@@ -32,13 +32,13 @@ func NewRouletteRoller(
 }
 
 type RouletteWinColorAndNumberData struct {
-	Color  config.Color `json:"color"`
-	Number int          `json:"number"`
+	Color  config2.Color `json:"color"`
+	Number int           `json:"number"`
 }
 
 type RouletteColorData struct {
-	Color       config.Color `json:"color"`
-	Probability float64      `json:"probability"`
+	Color       config2.Color `json:"color"`
+	Probability float64       `json:"probability"`
 }
 
 func (r *RouletteRoller) Roll(roulette *model.Roulette) (*RouletteWinColorAndNumberData, error) {
@@ -48,23 +48,23 @@ func (r *RouletteRoller) Roll(roulette *model.Roulette) (*RouletteWinColorAndNum
 		drawID           int64
 		err              error
 		number           int
-		color            config.Color
-		colors           map[config.Color]RouletteColorData
+		color            config2.Color
+		colors           map[config2.Color]RouletteColorData
 		stopAt           float64
 		provablyFairData provably_fair.ProvablyFairData
 		maxProbability   int
 		clientSeed       string
-		probability      config.RouletteColorConfig
+		probability      config2.RouletteColorConfig
 	)
 
-	maxProbability = config.RouletteWheelConfig.MaxWinProbability
+	maxProbability = config2.RouletteWheelConfig.MaxWinProbability
 
 	clientSeed = uuid.New().String()
 
 	provablyFairData = r.ProvablyFair.GetRandomNumber(clientSeed, maxProbability)
 	stopAt = provablyFairData.Result
 
-	colors = make(map[config.Color]RouletteColorData)
+	colors = make(map[config2.Color]RouletteColorData)
 	for color, probability = range r.RouletteColors {
 		colors[color] = RouletteColorData{
 			Color:       color,
@@ -87,7 +87,7 @@ func (r *RouletteRoller) Roll(roulette *model.Roulette) (*RouletteWinColorAndNum
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	drawID, err = r.ProvablyFair.StoreGameDraw(roulette.ID, config.Roulette)
+	drawID, err = r.ProvablyFair.StoreGameDraw(roulette.ID, config2.Roulette)
 	if err != nil {
 		r.log.Error("failed to store game draw", sl.Err(err))
 
@@ -106,9 +106,9 @@ func (r *RouletteRoller) Roll(roulette *model.Roulette) (*RouletteWinColorAndNum
 	}, nil
 }
 
-func (r *RouletteRoller) GetWinner(colors map[config.Color]RouletteColorData, stopAt float64) config.Color {
+func (r *RouletteRoller) GetWinner(colors map[config2.Color]RouletteColorData, stopAt float64) config2.Color {
 	var (
-		color              config.Color
+		color              config2.Color
 		currentProbability float64
 	)
 

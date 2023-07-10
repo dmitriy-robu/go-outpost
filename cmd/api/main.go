@@ -6,17 +6,17 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/gorilla/websocket"
-	"go-outpost/internal/config"
-	"go-outpost/internal/http-server/handlers/event"
-	"go-outpost/internal/http-server/handlers/mysql"
-	"go-outpost/internal/http-server/handlers/provably_fair"
-	"go-outpost/internal/http-server/handlers/roulette/bet/save"
-	"go-outpost/internal/http-server/handlers/roulette/start"
-	"go-outpost/internal/http-server/handlers/user/balance"
-	"go-outpost/internal/http-server/middleware/logger"
+	"go-outpost/internal/api/config"
+	"go-outpost/internal/api/http-server/handlers/event"
+	"go-outpost/internal/api/http-server/handlers/mysql"
+	"go-outpost/internal/api/http-server/handlers/provably_fair"
+	"go-outpost/internal/api/http-server/handlers/roulette/bet/save"
+	"go-outpost/internal/api/http-server/handlers/roulette/start"
+	"go-outpost/internal/api/http-server/handlers/user/balance"
+	"go-outpost/internal/api/http-server/middleware/logger"
+	"go-outpost/internal/api/repository"
 	"go-outpost/internal/lib/logger/handler/slogpretty"
 	"go-outpost/internal/lib/logger/sl"
-	"go-outpost/internal/repository"
 	"golang.org/x/exp/slog"
 	"net/http"
 	"os"
@@ -52,13 +52,18 @@ func main() {
 
 	handler := mysql.New(db)
 
-	conn, _, err := websocket.DefaultDialer.Dial("ws://localhost:8081/ws?room=test", nil)
+	conn, _, err := websocket.DefaultDialer.Dial("ws://"+cfg.WSServer.Address+"/ws", nil)
 	if err != nil {
 		log.Error("Failed to init storage", sl.Err(err))
 
 		return
 	}
-	defer conn.Close()
+	defer func(conn *websocket.Conn) {
+		err = conn.Close()
+		if err != nil {
+			log.Error("Failed to init storage", sl.Err(err))
+		}
+	}(conn)
 
 	pusherEvent := event.NewPusherEvent(log, conn)
 
@@ -84,10 +89,10 @@ func main() {
 	router.Post("/roulette/start", startRoulette.New())
 	router.Post("/roulette/{uuid}/place-bet", betSave.New())
 
-	log.Info("Server started", slog.String("address", cfg.Address))
+	log.Info("Server started", slog.String("address", cfg.HTTPServer.Address))
 
 	srv := &http.Server{
-		Addr:         cfg.Address,
+		Addr:         cfg.HTTPServer.Address,
 		Handler:      router,
 		ReadTimeout:  cfg.HTTPServer.Timeout,
 		WriteTimeout: cfg.HTTPServer.Timeout,

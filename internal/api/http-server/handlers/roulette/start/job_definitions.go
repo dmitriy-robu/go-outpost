@@ -1,6 +1,8 @@
 package start
 
-import "go-outpost/internal/config"
+import (
+	"go-outpost/internal/api/config"
+)
 
 type RouletteUpdatePlayedAtJob struct {
 	rouletteID int64

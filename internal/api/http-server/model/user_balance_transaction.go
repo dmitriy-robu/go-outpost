@@ -2,7 +2,7 @@ package model
 
 import (
 	"encoding/json"
-	"go-outpost/internal/config"
+	"go-outpost/internal/api/config"
 	"time"
 )
 

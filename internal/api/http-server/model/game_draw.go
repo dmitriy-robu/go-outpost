@@ -1,7 +1,7 @@
 package model
 
 import (
-	"go-outpost/internal/config"
+	"go-outpost/internal/api/config"
 	"time"
 )
 

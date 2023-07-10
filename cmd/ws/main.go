@@ -1,115 +1,76 @@
 package main
 
 import (
-	"encoding/json"
-	"log"
+	"go-outpost/internal/api/config"
+	"go-outpost/internal/lib/logger/handler/slogpretty"
+	"go-outpost/internal/lib/logger/sl"
+	"go-outpost/internal/ws/handler"
+	"golang.org/x/exp/slog"
 	"net/http"
-	"sync"
-
-	"github.com/gorilla/websocket"
+	"os"
 )
 
-type Message struct {
-	Channel string                 `json:"channel"`
-	Event   string                 `json:"event"`
-	Data    map[string]interface{} `json:"data"`
-}
-
-type Subscription struct {
-	Conn    *websocket.Conn
-	Channel string
-}
-
-type Hub struct {
-	Channels  map[string]map[*websocket.Conn]bool
-	Broadcast chan Message
-	Subscribe chan Subscription
-	mutex     sync.RWMutex
-}
-
-func newHub() *Hub {
-	return &Hub{
-		Channels:  make(map[string]map[*websocket.Conn]bool),
-		Broadcast: make(chan Message),
-		Subscribe: make(chan Subscription),
-	}
-}
-
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-}
-
-func (h *Hub) run() {
-	for {
-		select {
-		case sub := <-h.Subscribe:
-			if h.Channels[sub.Channel] == nil {
-				h.Channels[sub.Channel] = make(map[*websocket.Conn]bool)
-			}
-			h.Channels[sub.Channel][sub.Conn] = true
-		case message := <-h.Broadcast:
-			if receivers, ok := h.Channels[message.Channel]; ok {
-				data, err := json.Marshal(message)
-				if err != nil {
-					log.Printf("error: %v", err)
-					continue
-				}
-
-				log.Printf("Outgoing message to channel '%s': %s\n", message.Channel, string(data))
-
-				for conn := range receivers {
-					if err := conn.WriteMessage(websocket.TextMessage, data); err != nil {
-						log.Println(err)
-					}
-				}
-			}
-		}
-	}
-}
-
-var hub = newHub()
-
-func handleConnection(w http.ResponseWriter, r *http.Request) {
-	ws, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	defer ws.Close()
-
-	for {
-		_, p, err := ws.ReadMessage()
-		if err != nil {
-			log.Println(err)
-			return
-		}
-
-		log.Printf("Received data: %s\n", p)
-		message := &Message{}
-		err = json.Unmarshal(p, message)
-		if err != nil {
-			log.Printf("error: %v", err)
-			continue
-		}
-
-		// Log incoming message
-		log.Printf("Incoming message from channel '%s': %s\n", message.Channel, string(p))
-
-		if hub.Channels[message.Channel] == nil {
-			hub.Subscribe <- Subscription{Conn: ws, Channel: message.Channel}
-		}
-
-		hub.Broadcast <- *message
-	}
-}
+const (
+	envLocal = "local"
+	envDev   = "dev"
+	envProd  = "prod"
+)
 
 func main() {
-	go hub.run()
+	cfg := config.MustLoad()
 
-	http.HandleFunc("/ws", handleConnection)
+	log := setupLogger(cfg.Env)
 
-	if err := http.ListenAndServe(":8081", nil); err != nil {
-		log.Fatal(err)
+	log.Info("Starting ws server...", slog.String("env", cfg.Env))
+	log.Debug("debug messages are enabled")
+
+	hub := handler.NewHub(log)
+
+	hub.RunServer()
+
+	http.HandleFunc("/ws", hub.HandleConnection)
+
+	log.Info("Server started", slog.String("address", cfg.WSServer.Address))
+
+	srv := &http.Server{
+		Addr:         cfg.WSServer.Address,
+		ReadTimeout:  cfg.WSServer.Timeout,
+		WriteTimeout: cfg.WSServer.Timeout,
+		IdleTimeout:  cfg.WSServer.IdleTimeout,
 	}
+
+	if err := srv.ListenAndServe(); err != nil {
+		log.Error("Server error", sl.Err(err))
+	}
+
+	log.Error("WS server stopped")
+}
+
+func setupLogger(env string) *slog.Logger {
+	var log *slog.Logger
+
+	switch env {
+	case envLocal:
+		log = setupPrettySlogLogger()
+	case envDev:
+		log = slog.New(
+			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	case envProd:
+		log = slog.New(
+			slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	}
+
+	return log
+}
+
+func setupPrettySlogLogger() *slog.Logger {
+	opts := slogpretty.PrettyHandlerOptions{
+		SlogOpts: &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		},
+	}
+
+	handler := opts.NewPrettyHandler(os.Stdout)
+
+	return slog.New(handler)
 }

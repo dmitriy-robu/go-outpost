@@ -3,9 +3,9 @@ package repository
 import (
 	"database/sql"
 	"fmt"
-	"go-outpost/internal/config"
-	"go-outpost/internal/http-server/handlers/mysql"
-	"go-outpost/internal/http-server/model"
+	config2 "go-outpost/internal/api/config"
+	"go-outpost/internal/api/http-server/handlers/mysql"
+	model2 "go-outpost/internal/api/http-server/model"
 	"time"
 )
 
@@ -17,14 +17,14 @@ func NewUserRepository(dbhandler mysql.Handler) *UserRepository {
 	return &UserRepository{dbhandler: dbhandler}
 }
 
-func (repo *UserRepository) FindUserByUUID(uuid string) (*model.User, error) {
+func (repo *UserRepository) FindUserByUUID(uuid string) (*model2.User, error) {
 	const query = "SELECT id FROM users WHERE uuid = ?"
 	row, err := repo.dbhandler.PrepareAndQueryRow(query, uuid)
 	if err != nil {
 		return nil, err
 	}
 
-	user := &model.User{}
+	user := &model2.User{}
 
 	err = row.Scan(&user.ID)
 	if err != nil {
@@ -38,7 +38,7 @@ func (repo *UserRepository) FindUserByUUID(uuid string) (*model.User, error) {
 	return user, nil
 }
 
-func (repo *UserRepository) FindUserBalanceByID(userID int64) (*model.UserBalance, error) {
+func (repo *UserRepository) FindUserBalanceByID(userID int64) (*model2.UserBalance, error) {
 	const op = "repository.user.FindUserBalanceByID"
 
 	const query = "SELECT balance FROM user_balances WHERE user_id = ?"
@@ -47,7 +47,7 @@ func (repo *UserRepository) FindUserBalanceByID(userID int64) (*model.UserBalanc
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	userBalance := &model.UserBalance{}
+	userBalance := &model2.UserBalance{}
 
 	err = row.Scan(&userBalance.Balance)
 	if err != nil {
@@ -92,8 +92,8 @@ func (repo *UserRepository) IncomeToUserBalance(userID int64, amount int) error 
 func (repo *UserRepository) CreateUserBalanceTransaction(
 	userID int64,
 	amount int,
-	balanceType config.BalanceType,
-	game config.Game,
+	balanceType config2.BalanceType,
+	game config2.Game,
 ) error {
 	const op = "repository.user.CreateUserBalanceTransaction"
 
@@ -109,7 +109,7 @@ func (repo *UserRepository) CreateUserBalanceTransaction(
 	return nil
 }
 
-func (repo *UserRepository) GetUserByID(userID int64) (*model.User, error) {
+func (repo *UserRepository) GetUserByID(userID int64) (*model2.User, error) {
 	const op = "repository.user.GetUserByID"
 
 	const query = "SELECT id, uuid FROM users WHERE id = ?"
@@ -118,7 +118,7 @@ func (repo *UserRepository) GetUserByID(userID int64) (*model.User, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	user := &model.User{}
+	user := &model2.User{}
 
 	err = row.Scan(&user.ID, &user.UUID)
 	if err != nil {
