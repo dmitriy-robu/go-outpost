@@ -44,24 +44,37 @@ type RouletteColorData struct {
 func (r *RouletteRoller) Roll(roulette *model.Roulette) (*RouletteWinColorAndNumberData, error) {
 	const op = "handlers.roulette.start.Roll"
 
-	maxProbability := config.RouletteWheelConfig.MaxWinProbability
+	var (
+		drawID           int64
+		err              error
+		number           int
+		color            config.Color
+		colors           map[config.Color]RouletteColorData
+		stopAt           float64
+		provablyFairData provably_fair.ProvablyFairData
+		maxProbability   int
+		clientSeed       string
+		probability      config.RouletteColorConfig
+	)
 
-	clientSeed := uuid.New().String()
+	maxProbability = config.RouletteWheelConfig.MaxWinProbability
 
-	provablyFairData := r.ProvablyFair.GetRandomNumber(clientSeed, maxProbability)
-	stopAt := provablyFairData.Result
+	clientSeed = uuid.New().String()
 
-	colors := make(map[config.Color]RouletteColorData)
-	for color, probability := range r.RouletteColors {
+	provablyFairData = r.ProvablyFair.GetRandomNumber(clientSeed, maxProbability)
+	stopAt = provablyFairData.Result
+
+	colors = make(map[config.Color]RouletteColorData)
+	for color, probability = range r.RouletteColors {
 		colors[color] = RouletteColorData{
 			Color:       color,
 			Probability: probability.Probability,
 		}
 	}
 
-	color := r.GetWinner(colors, stopAt)
+	color = r.GetWinner(colors, stopAt)
 
-	number, err := r.RouletteWinnerRepository.GetNumberByColor(color)
+	number, err = r.RouletteWinnerRepository.GetNumberByColor(color)
 	if err != nil {
 		r.log.Error("failed to get number by color", sl.Err(err))
 
@@ -74,7 +87,7 @@ func (r *RouletteRoller) Roll(roulette *model.Roulette) (*RouletteWinColorAndNum
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	drawID, err := r.ProvablyFair.StoreGameDraw(roulette.ID, config.Roulette)
+	drawID, err = r.ProvablyFair.StoreGameDraw(roulette.ID, config.Roulette)
 	if err != nil {
 		r.log.Error("failed to store game draw", sl.Err(err))
 

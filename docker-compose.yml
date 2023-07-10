@@ -1,0 +1,50 @@
+version: "3.9"
+
+services:
+  go-trade-backend:
+    container_name: go-trade-backend
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "32530:5050"
+    depends_on:
+      - "go-trade-mongodb"
+      - "go-trade-memcached"
+    restart: always
+    environment:
+      - GO_PORT=5050
+      - ROOT_PATH=/app
+    volumes:
+      - ./:/app
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - go-trade-network
+
+  go-trade-mongodb:
+    container_name: go-trade-mongodb
+    image: mongo
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=admin
+      - MONGO_INITDB_ROOT_PASSWORD=admin
+    ports:
+      - "32531:27017"
+    restart: unless-stopped
+    volumes:
+      - ./docker/mongodb/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js
+      - ./storage/db/mdb:/data/db
+    networks:
+      - go-trade-network
+
+  go-trade-memcached:
+    container_name: go-trade-memcached
+    image: memcached
+    ports:
+      - "32533:11211"
+    networks:
+      - go-trade-network
+
+networks:
+  go-trade-network:
+    external: true
