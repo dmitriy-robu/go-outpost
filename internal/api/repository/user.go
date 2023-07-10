@@ -131,14 +131,3 @@ func (repo *UserRepository) GetUserByID(userID int64) (*model.User, error) {
 
 	return user, nil
 }
-
-func (repo *UserRepository) StartTransaction() (*sql.Tx, error) {
-	const op = "repository.user.StartTransaction"
-
-	tx, err := repo.dbhandler.StartTransaction()
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-
-	return tx, nil
-}

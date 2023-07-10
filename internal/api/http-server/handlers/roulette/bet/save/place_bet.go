@@ -47,6 +47,7 @@ type Bet struct {
 	betSaver    BetSaver
 	userRep     repository.UserRepository
 	balance     balance.Interface
+	repo        repository.Repository
 }
 
 func NewBet(
@@ -54,7 +55,8 @@ func NewBet(
 	rouletteRep repository.RouletteRepository,
 	betSaver BetSaver,
 	userRep repository.UserRepository,
-	balance balance.Interface) *Bet {
+	balance balance.Interface,
+	repo repository.Repository) *Bet {
 	return &Bet{
 		log:         log,
 		validator:   validator.New(),
@@ -62,6 +64,7 @@ func NewBet(
 		betSaver:    betSaver,
 		userRep:     userRep,
 		balance:     balance,
+		repo:        repo,
 	}
 }
 
@@ -88,7 +91,7 @@ func (b *Bet) New() http.HandlerFunc {
 			slog.String("request_id", middleware.GetReqID(r.Context())),
 		)
 
-		tx, err := b.userRep.StartTransaction()
+		tx, err := b.repo.StartTransaction()
 		if err != nil {
 			log.Error("failed to start transaction", sl.Err(err))
 
@@ -98,8 +101,9 @@ func (b *Bet) New() http.HandlerFunc {
 		}
 		defer func() {
 			if r := recover(); r != nil {
-				err = tx.Rollback()
-				if err != nil {
+				if err = tx.Rollback(); err != nil {
+					log.Error("failed to rollback transaction", sl.Err(err))
+
 					return
 				}
 			}
@@ -218,7 +222,11 @@ func (b *Bet) New() http.HandlerFunc {
 
 			render.JSON(w, r, resp.Error("failed to update user balance", http.StatusInternalServerError))
 
-			tx.Rollback()
+			if err = tx.Rollback(); err != nil {
+				log.Error("failed to rollback transaction", sl.Err(err))
+
+				return
+			}
 
 			return
 		}
@@ -239,7 +247,11 @@ func (b *Bet) New() http.HandlerFunc {
 
 				render.JSON(w, r, resp.Error("failed to save bet", http.StatusInternalServerError))
 
-				tx.Rollback()
+				if err = tx.Rollback(); err != nil {
+					log.Error("failed to rollback transaction", sl.Err(err))
+
+					return
+				}
 
 				return
 			}
