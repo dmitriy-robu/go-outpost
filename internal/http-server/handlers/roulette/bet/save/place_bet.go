@@ -137,6 +137,8 @@ func (b *Bet) New() http.HandlerFunc {
 			return
 		}
 
+		log.Info("roulette found", slog.Any("roulette", roulette))
+
 		user, err = b.userRep.FindUserByUUID(req.UserUUID)
 		if err != nil {
 			log.Error("failed to find user", sl.Err(err))
@@ -145,6 +147,8 @@ func (b *Bet) New() http.HandlerFunc {
 
 			return
 		}
+
+		log.Info("user found", slog.Any("user", user))
 
 		userBalance, err = b.userRep.FindUserBalanceByID(user.ID)
 		if err != nil {
@@ -155,6 +159,8 @@ func (b *Bet) New() http.HandlerFunc {
 			return
 		}
 
+		log.Info("user balance found", slog.Any("user_balance", userBalance))
+
 		if userBalance.Balance < 0 {
 			log.Error("user has no balance", sl.Err(err))
 
@@ -162,6 +168,8 @@ func (b *Bet) New() http.HandlerFunc {
 
 			return
 		}
+
+		log.Info("user has balance", slog.Any("user_balance", userBalance))
 
 		totalBetAmount := 0.0
 		for _, bet := range req.BetRequest {
@@ -178,6 +186,8 @@ func (b *Bet) New() http.HandlerFunc {
 			return
 		}
 
+		log.Info("user has sufficient balance", slog.Any("user_balance", userBalance))
+
 		betCount, err = b.betSaver.CountBetsByRouletteAndUser(roulette.ID, user.ID)
 		if err != nil {
 			log.Error("failed to count bets", sl.Err(err))
@@ -186,6 +196,8 @@ func (b *Bet) New() http.HandlerFunc {
 
 			return
 		}
+
+		log.Info("bet count", slog.Any("bet_count", betCount))
 
 		if betCount+len(req.BetRequest) > 2 {
 			log.Info("user has already placed 2 bets on this start",
@@ -199,6 +211,8 @@ func (b *Bet) New() http.HandlerFunc {
 			return
 		}
 
+		log.Info("user has not placed 2 bets on this start")
+
 		if err = b.balance.Outcome(user.ID, convertedAmount, config.Roulette); err != nil {
 			log.Error("failed to update user balance", sl.Err(err))
 
@@ -208,6 +222,8 @@ func (b *Bet) New() http.HandlerFunc {
 
 			return
 		}
+
+		log.Info("user balance updated", slog.Any("user_balance", userBalance))
 
 		for _, bet := range req.BetRequest {
 			rouletteBet = model.RouletteBet{

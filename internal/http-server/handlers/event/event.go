@@ -1,26 +1,53 @@
 package event
 
 import (
-	"github.com/pusher/pusher-http-go/v5"
+	"encoding/json"
+	"fmt"
+	"github.com/gorilla/websocket"
 	"golang.org/x/exp/slog"
 )
 
 type PusherEvent struct {
-	log    *slog.Logger
-	pusher *pusher.Client
+	log  *slog.Logger
+	conn *websocket.Conn
 }
 
-func NewPusherEvent(log *slog.Logger, pusherClient *pusher.Client) *PusherEvent {
+type Message struct {
+	Channel string                 `json:"channel"`
+	Event   string                 `json:"event"`
+	Data    map[string]interface{} `json:"data"`
+}
+
+func NewPusherEvent(log *slog.Logger, conn *websocket.Conn) *PusherEvent {
 	return &PusherEvent{
-		log:    log,
-		pusher: pusherClient,
+		log:  log,
+		conn: conn,
 	}
 }
 
-func (p *PusherEvent) TriggerEvent(channel string, eventName string, data map[string]interface{}) error {
-	if err := p.pusher.Trigger(channel, eventName, data); err != nil {
-		p.log.Error("failed to trigger pusher event")
-		return err
+func (p *PusherEvent) TriggerEvent(m Message) error {
+	const op = "handlers.event.TriggerEvent"
+
+	var (
+		err error
+		msg []byte
+	)
+
+	msg, err = json.Marshal(m)
+
+	if err != nil {
+		p.log.Error("failed to marshal message")
+
+		return fmt.Errorf("%s: %w", op, err)
 	}
+
+	if err = p.conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+		p.log.Error("failed to trigger event")
+
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	p.log.Info("event triggered")
+
 	return nil
 }

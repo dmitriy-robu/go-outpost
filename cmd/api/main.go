@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/pusher/pusher-http-go/v5"
+	"github.com/gorilla/websocket"
 	"go-outpost/internal/config"
 	"go-outpost/internal/http-server/handlers/event"
 	"go-outpost/internal/http-server/handlers/mysql"
@@ -52,15 +52,15 @@ func main() {
 
 	handler := mysql.New(db)
 
-	pusherClient := pusher.Client{
-		AppID:   "1602770",
-		Key:     "703a70efb23d918d9db0",
-		Secret:  "f91c9c17105b0e1676c6",
-		Cluster: "eu",
-		Secure:  true,
-	}
+	conn, _, err := websocket.DefaultDialer.Dial("ws://localhost:8081/ws?room=test", nil)
+	if err != nil {
+		log.Error("Failed to init storage", sl.Err(err))
 
-	pusherEvent := event.NewPusherEvent(log, &pusherClient)
+		return
+	}
+	defer conn.Close()
+
+	pusherEvent := event.NewPusherEvent(log, conn)
 
 	rouletteBetRepo := repository.NewBetRepository(*handler)
 	rouletteRepo := repository.NewRouletteRepository(*handler)

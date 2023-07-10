@@ -40,6 +40,7 @@ func (b *Balance) Income(userID int64, amount int, game config.Game) error {
 		err         error
 		user        *model.User
 		userBalance *model.UserBalance
+		message     event.Message
 	)
 
 	if err = b.userRep.IncomeToUserBalance(userID, amount); err != nil {
@@ -76,15 +77,19 @@ func (b *Balance) Income(userID int64, amount int, game config.Game) error {
 
 	b.log.Info("user balance found")
 
-	data := map[string]interface{}{
-		"user_uuid":      user.UUID,
-		"amount":         strconv.Itoa(amount),
-		"operation_type": string(config.Income),
-		"module":         string(config.Roulette),
-		"balance":        converter.ConvertAmountIntToSting(userBalance.Balance),
+	message = event.Message{
+		Channel: "balance-channel",
+		Event:   "income-event",
+		Data: map[string]interface{}{
+			"user_uuid":      user.UUID,
+			"amount":         strconv.Itoa(amount),
+			"operation_type": config.Income,
+			"module":         config.Roulette,
+			"balance":        converter.ConvertAmountIntToSting(userBalance.Balance),
+		},
 	}
 
-	return b.pusher.TriggerEvent("balance-channel", "income-event", data)
+	return b.pusher.TriggerEvent(message)
 
 }
 
@@ -95,6 +100,7 @@ func (b *Balance) Outcome(userID int64, amount int, game config.Game) error {
 		err         error
 		user        *model.User
 		userBalance *model.UserBalance
+		message     event.Message
 	)
 
 	if err = b.userRep.OutcomeFromUserBalance(userID, amount); err != nil {
@@ -131,13 +137,17 @@ func (b *Balance) Outcome(userID int64, amount int, game config.Game) error {
 
 	b.log.Info("user balance found")
 
-	data := map[string]interface{}{
-		"user_uuid":      user.UUID,
-		"amount":         strconv.Itoa(amount),
-		"operation_type": string(config.Outcome),
-		"module":         string(config.Roulette),
-		"balance":        converter.ConvertAmountIntToSting(userBalance.Balance),
+	message = event.Message{
+		Channel: "balance-channel",
+		Event:   "outcome-event",
+		Data: map[string]interface{}{
+			"user_uuid":      user.UUID,
+			"amount":         strconv.Itoa(amount),
+			"operation_type": config.Outcome,
+			"module":         config.Roulette,
+			"balance":        converter.ConvertAmountIntToSting(userBalance.Balance),
+		},
 	}
 
-	return b.pusher.TriggerEvent("balance-channel", "outcome-event", data)
+	return b.pusher.TriggerEvent(message)
 }

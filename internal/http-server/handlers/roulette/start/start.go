@@ -28,10 +28,6 @@ type RouletteStart struct {
 	balance        balance.Interface
 }
 
-type Roulette interface {
-	Roll(roulette *model.Roulette) (winColor string, winNumber int)
-}
-
 func NewRouletteStart(
 	log *slog.Logger,
 	rouletteRep repository.RouletteRepository,
@@ -177,7 +173,13 @@ func (s *RouletteStart) sendNewRoundEvent(roulette *model.Roulette) error {
 		"round":      roulette.Round,
 	}
 
-	return s.pusher.TriggerEvent("balance-channel", "outcome-event", data)
+	message := event.Message{
+		Channel: "balance-channel",
+		Event:   "outcome-event",
+		Data:    data,
+	}
+
+	return s.pusher.TriggerEvent(message)
 }
 
 func (s *RouletteStart) handleWinners(rouletteID int64, color config.Color) error {
