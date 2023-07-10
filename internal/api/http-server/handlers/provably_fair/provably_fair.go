@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"go-outpost/internal/api/config"
-	model2 "go-outpost/internal/api/http-server/model"
+	"go-outpost/internal/api/http-server/model"
 	"go-outpost/internal/api/repository"
 	"go-outpost/internal/lib/logger/sl"
 	"go-outpost/internal/lib/random"
@@ -97,7 +97,7 @@ func (f *ProvablyFair) StoreGameDraw(rouletteID int64, game config.Game) (int64,
 
 	now := time.Now()
 
-	gameDrawModel := &model2.GameDraw{
+	gameDrawModel := &model.GameDraw{
 		GameID:    rouletteID,
 		Game:      game,
 		CreatedAt: now,
@@ -119,7 +119,7 @@ func (f *ProvablyFair) StoreProvablyFair(data ProvablyFairData, drawID int64) er
 
 	now := time.Now()
 
-	provablyFairModel := &model2.ProvablyFair{
+	provablyFairModel := &model.ProvablyFair{
 		GameDrawID:           drawID,
 		ClientSeed:           data.ClientSeed,
 		ServerSeed:           data.ServerSeed,

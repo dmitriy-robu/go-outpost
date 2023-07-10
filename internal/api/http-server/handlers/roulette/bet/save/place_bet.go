@@ -5,10 +5,10 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
 	"github.com/go-playground/validator/v10"
-	config2 "go-outpost/internal/api/config"
+	"go-outpost/internal/api/config"
 	"go-outpost/internal/api/http-server/handlers/user/balance"
-	model2 "go-outpost/internal/api/http-server/model"
-	repository2 "go-outpost/internal/api/repository"
+	"go-outpost/internal/api/http-server/model"
+	"go-outpost/internal/api/repository"
 	resp "go-outpost/internal/lib/api/response"
 	"go-outpost/internal/lib/converter"
 	"go-outpost/internal/lib/logger/sl"
@@ -22,8 +22,8 @@ type Request struct {
 }
 
 type BetRequest struct {
-	Color  config2.Color `json:"color" validate:"required"`
-	Amount float64       `json:"amount" validate:"required,min=0.01"`
+	Color  config.Color `json:"color" validate:"required"`
+	Amount float64      `json:"amount" validate:"required,min=0.01"`
 }
 
 type Response struct {
@@ -36,24 +36,24 @@ type BetCounter interface {
 
 //go:generate go run github.com/vektra/mockery/v2@v2.28.2 --name=BetSaver
 type BetSaver interface {
-	SaveBet(bet model2.RouletteBet) (int64, error)
+	SaveBet(bet model.RouletteBet) (int64, error)
 	BetCounter
 }
 
 type Bet struct {
 	log         *slog.Logger
 	validator   *validator.Validate
-	rouletteRep repository2.RouletteRepository
+	rouletteRep repository.RouletteRepository
 	betSaver    BetSaver
-	userRep     repository2.UserRepository
+	userRep     repository.UserRepository
 	balance     balance.Interface
 }
 
 func NewBet(
 	log *slog.Logger,
-	rouletteRep repository2.RouletteRepository,
+	rouletteRep repository.RouletteRepository,
 	betSaver BetSaver,
-	userRep repository2.UserRepository,
+	userRep repository.UserRepository,
 	balance balance.Interface) *Bet {
 	return &Bet{
 		log:         log,
@@ -74,13 +74,13 @@ func (b *Bet) New() http.HandlerFunc {
 			req             Request
 			log             *slog.Logger
 			uuidStr         string
-			roulette        *model2.Roulette
-			user            *model2.User
+			roulette        *model.Roulette
+			user            *model.User
 			betCount        int
-			rouletteBet     model2.RouletteBet
+			rouletteBet     model.RouletteBet
 			id              int64
 			convertedAmount int
-			userBalance     *model2.UserBalance
+			userBalance     *model.UserBalance
 		)
 
 		log = b.log.With(
@@ -213,7 +213,7 @@ func (b *Bet) New() http.HandlerFunc {
 
 		log.Info("user has not placed 2 bets on this start")
 
-		if err = b.balance.Outcome(user.ID, convertedAmount, config2.Roulette); err != nil {
+		if err = b.balance.Outcome(user.ID, convertedAmount, config.Roulette); err != nil {
 			log.Error("failed to update user balance", sl.Err(err))
 
 			render.JSON(w, r, resp.Error("failed to update user balance", http.StatusInternalServerError))
@@ -226,7 +226,7 @@ func (b *Bet) New() http.HandlerFunc {
 		log.Info("user balance updated", slog.Any("user_balance", userBalance))
 
 		for _, bet := range req.BetRequest {
-			rouletteBet = model2.RouletteBet{
+			rouletteBet = model.RouletteBet{
 				Color:      bet.Color,
 				Amount:     converter.ConvertAmountFloatToInt(bet.Amount),
 				RouletteID: roulette.ID,

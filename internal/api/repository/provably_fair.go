@@ -3,7 +3,7 @@ package repository
 import (
 	"fmt"
 	"go-outpost/internal/api/http-server/handlers/mysql"
-	model2 "go-outpost/internal/api/http-server/model"
+	model "go-outpost/internal/api/http-server/model"
 )
 
 type ProvablyFairRepository struct {
@@ -14,7 +14,7 @@ func NewProvablyFairRepository(dbhandler mysql.Handler) *ProvablyFairRepository 
 	return &ProvablyFairRepository{dbhandler: dbhandler}
 }
 
-func (repo *ProvablyFairRepository) SaveProvablyFair(provablyFair model2.ProvablyFair) error {
+func (repo *ProvablyFairRepository) SaveProvablyFair(provablyFair model.ProvablyFair) error {
 	const op = "repository.provably_fair.SaveProvablyFair"
 
 	const query = "INSERT INTO provably_fairs(game_draw_id," +
@@ -46,7 +46,7 @@ func (repo *ProvablyFairRepository) SaveProvablyFair(provablyFair model2.Provabl
 	return nil
 }
 
-func (repo *ProvablyFairRepository) SaveGameDraw(gameDraw model2.GameDraw) (int64, error) {
+func (repo *ProvablyFairRepository) SaveGameDraw(gameDraw model.GameDraw) (int64, error) {
 	const op = "repository.provably_fair.SaveGameDraw"
 
 	const query = "INSERT INTO game_draws(game_id," +
