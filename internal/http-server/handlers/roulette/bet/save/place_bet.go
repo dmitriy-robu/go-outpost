@@ -199,8 +199,7 @@ func (b *Bet) New() http.HandlerFunc {
 			return
 		}
 
-		err = b.balance.Outcome(user.ID, convertedAmount, config.Roulette)
-		if err != nil {
+		if err = b.balance.Outcome(user.ID, convertedAmount, config.Roulette); err != nil {
 			log.Error("failed to update user balance", sl.Err(err))
 
 			render.JSON(w, r, resp.Error("failed to update user balance", http.StatusInternalServerError))

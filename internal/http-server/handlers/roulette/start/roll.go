@@ -100,8 +100,6 @@ func (r *RouletteRoller) Roll(roulette *model.Roulette) (*RouletteWinColorAndNum
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	//r.handleWinners(roulette.ID, color)
-
 	return &RouletteWinColorAndNumberData{
 		Color:  color,
 		Number: number,

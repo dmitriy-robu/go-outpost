@@ -51,6 +51,7 @@ func main() {
 	}
 
 	handler := mysql.New(db)
+
 	pusherClient := pusher.Client{
 		AppID:   "1602770",
 		Key:     "703a70efb23d918d9db0",
@@ -61,7 +62,7 @@ func main() {
 
 	pusherEvent := event.NewPusherEvent(log, &pusherClient)
 
-	betRepo := repository.NewBetRepository(*handler)
+	rouletteBetRepo := repository.NewBetRepository(*handler)
 	rouletteRepo := repository.NewRouletteRepository(*handler)
 	rouletteWinnerRepo := repository.NewRouletteWinnerRepository(*handler)
 	userRepo := repository.NewUserRepository(*handler)
@@ -69,9 +70,9 @@ func main() {
 
 	provablyFair := provably_fair.NewProvablyFair(*provablyFairRepo, log)
 	roll := start.NewRouletteRoller(*rouletteWinnerRepo, provablyFair, log)
-	startRoulette := start.NewRouletteStart(log, *rouletteRepo, pusherEvent, roll)
+	startRoulette := start.NewRouletteStart(log, *rouletteRepo, *rouletteBetRepo, pusherEvent, roll)
 	userBalance := balance.NewBalance(*userRepo, log, pusherEvent)
-	betSave := place_bet.NewBet(log, *rouletteRepo, betRepo, *userRepo, userBalance)
+	betSave := place_bet.NewBet(log, *rouletteRepo, rouletteBetRepo, *userRepo, userBalance)
 
 	router := chi.NewRouter()
 	router.Use(middleware.RequestID)

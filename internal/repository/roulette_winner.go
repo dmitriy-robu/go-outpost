@@ -19,6 +19,7 @@ func NewRouletteWinnerRepository(dbhandler mysql.Handler) *RouletteWinnerReposit
 
 func (repo *RouletteWinnerRepository) SaveWin(roulette *model.Roulette, color config.Color, number int) error {
 	const op = "repository.roulette_winner.SaveWin"
+
 	const query = "INSERT INTO roulette_wins(color, roulette_id, number, created_at, updated_at) " +
 		"VALUES(?, ?, ?, ?, ?)"
 
