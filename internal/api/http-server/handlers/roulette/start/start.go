@@ -69,18 +69,18 @@ func (s *RouletteStart) New() http.HandlerFunc {
 
 		rouletteID, err = s.rouletteRep.SaveRoulette(*roulette)
 		if err != nil {
-			log.Error("failed to save roulette")
+			log.Error("failed to save roulette", sl.Err(err))
 
 			render.JSON(w, r, resp.Error("failed to save roulette", http.StatusInternalServerError))
 
 			return
 		}
 
-		log.Info("roulette created")
+		log.Info("roulette created", sl.String("roulette_id", fmt.Sprintf("%d", rouletteID)))
 
 		roulette, err = s.rouletteRep.GetRouletteByID(rouletteID)
 		if err != nil {
-			log.Error("failed to get roulette")
+			log.Error("failed to get roulette", sl.Err(err))
 
 			render.JSON(w, r, resp.Error("failed to get roulette", http.StatusInternalServerError))
 
@@ -96,7 +96,7 @@ func (s *RouletteStart) New() http.HandlerFunc {
 
 		err = s.sendNewRoundEvent(roulette)
 		if err != nil {
-			log.Error("failed to send new round event")
+			log.Error("failed to send new round event", sl.Err(err))
 
 			render.JSON(w, r, resp.Error("failed to send new round event", http.StatusInternalServerError))
 
@@ -107,7 +107,7 @@ func (s *RouletteStart) New() http.HandlerFunc {
 
 		winColorAndNumberData, err = s.rouletteRoller.Roll(roulette)
 		if err != nil {
-			log.Error("failed to roll roulette")
+			log.Error("failed to roll roulette", sl.Err(err))
 
 			render.JSON(w, r, resp.Error("failed to roll roulette", http.StatusInternalServerError))
 
@@ -119,7 +119,7 @@ func (s *RouletteStart) New() http.HandlerFunc {
 			slog.Any("win_number", winColorAndNumberData.Number))
 
 		if err = s.handleWinners(rouletteID, winColorAndNumberData.Color); err != nil {
-			log.Error("failed to handle winners")
+			log.Error("failed to handle winners", sl.Err(err))
 
 			render.JSON(w, r, resp.Error("failed to handle winners", http.StatusInternalServerError))
 

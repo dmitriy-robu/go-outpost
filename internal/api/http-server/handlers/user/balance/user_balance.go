@@ -7,6 +7,7 @@ import (
 	model2 "go-outpost/internal/api/http-server/model"
 	"go-outpost/internal/api/repository"
 	"go-outpost/internal/lib/converter"
+	"go-outpost/internal/lib/logger/sl"
 	"golang.org/x/exp/slog"
 	"strconv"
 )
@@ -44,7 +45,7 @@ func (b *Balance) Income(userID int64, amount int, game config2.Game) error {
 	)
 
 	if err = b.userRep.IncomeToUserBalance(userID, amount); err != nil {
-		b.log.Error("failed to income to user balance")
+		b.log.Error("failed to income to user balance", sl.Err(err))
 
 		return fmt.Errorf("%s: %w", op, err)
 	}
@@ -52,7 +53,7 @@ func (b *Balance) Income(userID int64, amount int, game config2.Game) error {
 	b.log.Info("user balance updated")
 
 	if err = b.userRep.CreateUserBalanceTransaction(userID, amount, config2.Income, game); err != nil {
-		b.log.Error("failed to create user balance transaction")
+		b.log.Error("failed to create user balance transaction", sl.Err(err))
 
 		return fmt.Errorf("%s: %w", op, err)
 	}
@@ -61,7 +62,7 @@ func (b *Balance) Income(userID int64, amount int, game config2.Game) error {
 
 	user, err = b.userRep.GetUserByID(userID)
 	if err != nil {
-		b.log.Error("failed to find user by id")
+		b.log.Error("failed to find user by id", sl.Err(err))
 
 		return fmt.Errorf("%s: %w", op, err)
 	}
@@ -70,7 +71,7 @@ func (b *Balance) Income(userID int64, amount int, game config2.Game) error {
 
 	userBalance, err = b.userRep.FindUserBalanceByID(user.ID)
 	if err != nil {
-		b.log.Error("failed to find user balance by id")
+		b.log.Error("failed to find user balance by id", sl.Err(err))
 
 		return fmt.Errorf("%s: %w", op, err)
 	}
@@ -104,7 +105,7 @@ func (b *Balance) Outcome(userID int64, amount int, game config2.Game) error {
 	)
 
 	if err = b.userRep.OutcomeFromUserBalance(userID, amount); err != nil {
-		b.log.Error("failed to outcome from user balance")
+		b.log.Error("failed to outcome from user balance", sl.Err(err))
 
 		return fmt.Errorf("%s: %w", op, err)
 	}
@@ -112,7 +113,7 @@ func (b *Balance) Outcome(userID int64, amount int, game config2.Game) error {
 	b.log.Info("user balance updated")
 
 	if err = b.userRep.CreateUserBalanceTransaction(userID, amount, config2.Outcome, game); err != nil {
-		b.log.Error("failed to create user balance transaction")
+		b.log.Error("failed to create user balance transaction", sl.Err(err))
 
 		return fmt.Errorf("%s: %w", op, err)
 	}
@@ -121,7 +122,7 @@ func (b *Balance) Outcome(userID int64, amount int, game config2.Game) error {
 
 	user, err = b.userRep.GetUserByID(userID)
 	if err != nil {
-		b.log.Error("failed to find user by id")
+		b.log.Error("failed to find user by id", sl.Err(err))
 
 		return fmt.Errorf("%s: %w", op, err)
 	}
@@ -130,7 +131,7 @@ func (b *Balance) Outcome(userID int64, amount int, game config2.Game) error {
 
 	userBalance, err = b.userRep.FindUserBalanceByID(user.ID)
 	if err != nil {
-		b.log.Error("failed to find user balance by id")
+		b.log.Error("failed to find user balance by id", sl.Err(err))
 
 		return fmt.Errorf("%s: %w", op, err)
 	}

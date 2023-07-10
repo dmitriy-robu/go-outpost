@@ -1,7 +1,7 @@
 package main
 
 import (
-	"go-outpost/internal/api/config"
+	"go-outpost/internal/config"
 	"go-outpost/internal/lib/logger/handler/slogpretty"
 	"go-outpost/internal/lib/logger/sl"
 	"go-outpost/internal/ws/handler"
