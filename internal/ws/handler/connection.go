@@ -112,6 +112,7 @@ func (hub *Hub) HandleConnection(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		message = &Message{}
 		err = json.Unmarshal(p, message)
 		if err != nil {
 			hub.log.Error("failed to unmarshal message", sl.Err(err))
@@ -119,7 +120,6 @@ func (hub *Hub) HandleConnection(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		// Log incoming message
 		hub.log.Info("incoming message", sl.String("channel", message.Channel),
 			sl.String("event", message.Event),
 			sl.Any("data", message.Data))
