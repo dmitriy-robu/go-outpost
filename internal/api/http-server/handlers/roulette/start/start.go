@@ -128,18 +128,19 @@ func (s *RouletteStart) New() http.HandlerFunc {
 
 		log.Info("winners handled")
 
+		delay := 15 * time.Second
+
 		eventMessage := event.Message{
 			Channel: "roulette",
-			Event:   "test",
+			Event:   "winner",
 			Data: map[string]interface{}{
-				"uuid":       roulette.UUID.String(),
-				"created_at": roulette.CreatedAt,
-				"round":      roulette.Round,
+				"color":  winColorAndNumberData.Color,
+				"number": winColorAndNumberData.Number,
 			},
 		}
-		job.Dispatch(&job.SendEventJob{EventMessage: eventMessage, Event: s.event}, 15*time.Second)
+		job.Dispatch(&job.SendEventJob{EventMessage: eventMessage, Event: s.event}, delay)
 
-		job.Dispatch(&RouletteStartJob{RouletteStart: s, RouletteID: rouletteID}, 15*time.Second)
+		job.Dispatch(&RouletteStartJob{RouletteStart: s, RouletteID: rouletteID}, delay)
 	}
 }
 
