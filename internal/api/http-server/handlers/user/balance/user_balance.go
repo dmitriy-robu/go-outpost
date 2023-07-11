@@ -90,7 +90,6 @@ func (b *Balance) Income(userID int64, amount int, game config.Game) error {
 	}
 
 	return b.pusher.TriggerEvent(message)
-
 }
 
 func (b *Balance) Outcome(userID int64, amount int, game config.Game) error {

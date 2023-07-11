@@ -103,10 +103,8 @@ func (b *Bet) New() http.HandlerFunc {
 		}
 		defer func() {
 			if r := recover(); r != nil {
-				if err = b.transaction.RollbackTransaction(tx); err != nil {
+				if err = tx.Rollback(); err != nil {
 					log.Error("failed to rollback transaction", sl.Err(err))
-
-					return
 				}
 			}
 		}()
@@ -223,10 +221,8 @@ func (b *Bet) New() http.HandlerFunc {
 
 			render.JSON(w, r, resp.Error("failed to update user balance", http.StatusInternalServerError))
 
-			if err = b.transaction.RollbackTransaction(tx); err != nil {
+			if err = tx.Rollback(); err != nil {
 				log.Error("failed to rollback transaction", sl.Err(err))
-
-				return
 			}
 
 			return
@@ -248,10 +244,8 @@ func (b *Bet) New() http.HandlerFunc {
 
 				render.JSON(w, r, resp.Error("failed to save bet", http.StatusInternalServerError))
 
-				if err = b.transaction.RollbackTransaction(tx); err != nil {
+				if err = tx.Rollback(); err != nil {
 					log.Error("failed to rollback transaction", sl.Err(err))
-
-					return
 				}
 
 				return
@@ -260,7 +254,7 @@ func (b *Bet) New() http.HandlerFunc {
 			log.Info("bet saved", slog.Any("id", id))
 		}
 
-		if err = b.transaction.CommitTransaction(tx); err != nil {
+		if err = tx.Commit(); err != nil {
 			log.Error("failed to commit transaction", sl.Err(err))
 
 			render.JSON(w, r, resp.Error("failed to commit transaction", http.StatusInternalServerError))

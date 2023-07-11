@@ -36,6 +36,7 @@ func NewRouletteStart(
 	rouletteBetRep repository.RouletteBetRepository,
 	eventClient *event.PusherEvent,
 	rouletteRoller *RouletteRoller,
+	balance balance.Interface,
 	transaction repository.Transaction) *RouletteStart {
 	return &RouletteStart{
 		log:            log,
@@ -44,6 +45,7 @@ func NewRouletteStart(
 		cache:          cache.New(5*time.Minute, 10*time.Minute),
 		event:          eventClient,
 		rouletteRoller: rouletteRoller,
+		balance:        balance,
 		transaction:    transaction,
 	}
 }
@@ -76,10 +78,8 @@ func (s *RouletteStart) New() http.HandlerFunc {
 		}
 		defer func() {
 			if r := recover(); r != nil {
-				if err = s.transaction.RollbackTransaction(tx); err != nil {
+				if err = tx.Rollback(); err != nil {
 					log.Error("failed to rollback transaction", sl.Err(err))
-
-					return
 				}
 			}
 		}()
@@ -97,14 +97,14 @@ func (s *RouletteStart) New() http.HandlerFunc {
 
 			render.JSON(w, r, resp.Error("failed to save roulette", http.StatusInternalServerError))
 
-			if err = s.transaction.RollbackTransaction(tx); err != nil {
+			if err = tx.Rollback(); err != nil {
 				log.Error("failed to rollback transaction", sl.Err(err))
-
-				return
 			}
 
 			return
 		}
+
+		s.updateCacheRound(round + 1)
 
 		log.Info("roulette created", sl.String("roulette_id", fmt.Sprintf("%d", rouletteID)))
 
@@ -114,10 +114,8 @@ func (s *RouletteStart) New() http.HandlerFunc {
 
 			render.JSON(w, r, resp.Error("failed to get roulette", http.StatusInternalServerError))
 
-			if err = s.transaction.RollbackTransaction(tx); err != nil {
+			if err = tx.Rollback(); err != nil {
 				log.Error("failed to rollback transaction", sl.Err(err))
-
-				return
 			}
 
 			return
@@ -128,18 +126,14 @@ func (s *RouletteStart) New() http.HandlerFunc {
 			job.Dispatch(&RouletteBetReplicateJob{rouletteID: rouletteID}, 0)
 		}*/
 
-		s.updateCacheRound(round + 1)
-
 		err = s.sendNewRoundEvent(roulette)
 		if err != nil {
 			log.Error("failed to send new round event", sl.Err(err))
 
 			render.JSON(w, r, resp.Error("failed to send new round event", http.StatusInternalServerError))
 
-			if err = s.transaction.RollbackTransaction(tx); err != nil {
+			if err = tx.Rollback(); err != nil {
 				log.Error("failed to rollback transaction", sl.Err(err))
-
-				return
 			}
 
 			return
@@ -153,10 +147,8 @@ func (s *RouletteStart) New() http.HandlerFunc {
 
 			render.JSON(w, r, resp.Error("failed to roll roulette", http.StatusInternalServerError))
 
-			if err = s.transaction.RollbackTransaction(tx); err != nil {
+			if err = tx.Rollback(); err != nil {
 				log.Error("failed to rollback transaction", sl.Err(err))
-
-				return
 			}
 
 			return
@@ -171,10 +163,8 @@ func (s *RouletteStart) New() http.HandlerFunc {
 
 			render.JSON(w, r, resp.Error("failed to handle winners", http.StatusInternalServerError))
 
-			if err = s.transaction.RollbackTransaction(tx); err != nil {
+			if err = tx.Rollback(); err != nil {
 				log.Error("failed to rollback transaction", sl.Err(err))
-
-				return
 			}
 
 			return
@@ -197,7 +187,7 @@ func (s *RouletteStart) New() http.HandlerFunc {
 
 		job.Dispatch(&RouletteStartJob{RouletteStart: s, RouletteID: rouletteID}, delay)
 
-		if err = s.transaction.CommitTransaction(tx); err != nil {
+		if err = tx.Commit(); err != nil {
 			log.Error("failed to commit transaction", sl.Err(err))
 
 			render.JSON(w, r, resp.Error("failed to commit transaction", http.StatusInternalServerError))
@@ -234,7 +224,7 @@ func (s *RouletteStart) UpdateRouletteUpdateAt(rouletteID int64) {
 		return
 	}
 
-	log.Info("roulette updated", sl.Any("roulette", roulette))
+	log.Info("roulette updated")
 
 	return
 }
@@ -305,6 +295,8 @@ func (s *RouletteStart) handleWinners(rouletteID int64, color config.Color) erro
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
+	s.log.Info("previous roulette", sl.Any("rouletteID", roulette.ID))
+
 	bets, err = s.rouletteBetRep.GetBetsByRouletteIDAndColor(roulette.ID, color)
 	if err != nil {
 		s.log.Error("failed to get winners by roulette id", sl.Err(err))
@@ -314,12 +306,22 @@ func (s *RouletteStart) handleWinners(rouletteID int64, color config.Color) erro
 
 	multiplier = s.getMultiplierByColor(color)
 
+	s.log.Info("multiplier", sl.Any("multiplier", multiplier))
+
+	if len(bets) == 0 {
+		s.log.Info("No bets found")
+
+		return nil
+	}
+
 	for _, winner := range bets {
 		if err = s.balance.Income(winner.UserID, winner.Amount*multiplier, config.Roulette); err != nil {
-			s.log.Error("failed to income user balance", sl.Err(err))
+			s.log.Error("failed to update user balance", sl.Err(err))
 
 			return fmt.Errorf("%s: %w", op, err)
 		}
+
+		s.log.Info("user balance updated", sl.Any("user_id", winner.UserID))
 	}
 
 	return nil

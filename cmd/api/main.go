@@ -73,7 +73,7 @@ func main() {
 
 	pusherEvent := event.NewPusherEvent(log, conn)
 
-	repo := repository.NewRepository(*handler)
+	repo := repository.NewTransaction(*handler)
 	rouletteBetRepo := repository.NewBetRepository(*handler)
 	rouletteRepo := repository.NewRouletteRepository(*handler)
 	rouletteWinnerRepo := repository.NewRouletteWinnerRepository(*handler)
@@ -82,8 +82,8 @@ func main() {
 
 	provablyFair := provably_fair.NewProvablyFair(*provablyFairRepo, log)
 	roll := start.NewRouletteRoller(*rouletteWinnerRepo, provablyFair, log)
-	startRoulette := start.NewRouletteStart(log, *rouletteRepo, *rouletteBetRepo, pusherEvent, roll, *repo)
 	userBalance := balance.NewBalance(*userRepo, log, pusherEvent)
+	startRoulette := start.NewRouletteStart(log, *rouletteRepo, *rouletteBetRepo, pusherEvent, roll, userBalance, *repo)
 	betSave := place_bet.NewBet(log, *rouletteRepo, rouletteBetRepo, *userRepo, userBalance, *repo)
 
 	router := chi.NewRouter()

@@ -10,12 +10,12 @@ type Transaction struct {
 	dbhandler mysql.Handler
 }
 
-func NewRepository(dbhandler mysql.Handler) *Transaction {
+func NewTransaction(dbhandler mysql.Handler) *Transaction {
 	return &Transaction{dbhandler: dbhandler}
 }
 
 func (tr *Transaction) StartTransaction() (*sql.Tx, error) {
-	const op = "repository.StartTransaction"
+	const op = "repository.transaction.StartTransaction"
 
 	tx, err := tr.dbhandler.StartTransaction()
 	if err != nil {
@@ -23,26 +23,4 @@ func (tr *Transaction) StartTransaction() (*sql.Tx, error) {
 	}
 
 	return tx, nil
-}
-
-func (tr *Transaction) RollbackTransaction(tx *sql.Tx) error {
-	const op = "repository.RollbackTransaction"
-
-	err := tx.Rollback()
-	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
-	}
-
-	return nil
-}
-
-func (tr *Transaction) CommitTransaction(tx *sql.Tx) error {
-	const op = "repository.CommitTransaction"
-
-	err := tx.Commit()
-	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
-	}
-
-	return nil
 }

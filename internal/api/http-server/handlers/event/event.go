@@ -42,6 +42,8 @@ func (p *PusherEvent) TriggerEvent(m Message) error {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
+	p.log.Info("triggering event")
+
 	if err = p.conn.WriteMessage(websocket.TextMessage, msg); err != nil {
 		p.log.Error("failed to trigger event", sl.Err(err))
 
