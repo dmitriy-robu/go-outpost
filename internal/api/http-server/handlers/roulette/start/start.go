@@ -59,6 +59,7 @@ func (s *RouletteStart) New() http.HandlerFunc {
 			winColorAndNumberData *RouletteWinColorAndNumberData
 			rouletteID            int64
 			tx                    *sql.Tx
+			round                 int64
 		)
 
 		log = s.log.With(
@@ -83,7 +84,7 @@ func (s *RouletteStart) New() http.HandlerFunc {
 			}
 		}()
 
-		round := s.getRoundFromCacheOrDB()
+		round = s.getRoundFromCacheOrDB()
 
 		roulette = &model.Roulette{
 			UUID:  uuid.New(),
@@ -191,6 +192,7 @@ func (s *RouletteStart) New() http.HandlerFunc {
 				"number": winColorAndNumberData.Number,
 			},
 		}
+
 		job.Dispatch(&job.SendEventJob{EventMessage: eventMessage, Event: s.event}, delay)
 
 		job.Dispatch(&RouletteStartJob{RouletteStart: s, RouletteID: rouletteID}, delay)
@@ -247,7 +249,7 @@ func (s *RouletteStart) getRoundFromCacheOrDB() int64 {
 
 	round, err := s.rouletteRep.GetLastRound()
 	if err != nil {
-		return 0
+		return 1
 	}
 
 	s.updateCacheRound(round)
@@ -293,16 +295,24 @@ func (s *RouletteStart) handleWinners(rouletteID int64, color config.Color) erro
 		err        error
 		bets       []model.RouletteBet
 		multiplier int
+		roulette   *model.Roulette
 	)
 
-	bets, err = s.rouletteBetRep.GetBetsByRouletteIDAndColor(rouletteID, color)
+	roulette, err = s.rouletteRep.GetPreviousRouletteID(rouletteID)
+	if err != nil {
+		s.log.Error("failed to get previous roulette id", sl.Err(err))
+
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	bets, err = s.rouletteBetRep.GetBetsByRouletteIDAndColor(roulette.ID, color)
 	if err != nil {
 		s.log.Error("failed to get winners by roulette id", sl.Err(err))
 
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
-	multiplier = s.GetMultiplierByColor(color)
+	multiplier = s.getMultiplierByColor(color)
 
 	for _, winner := range bets {
 		if err = s.balance.Income(winner.UserID, winner.Amount*multiplier, config.Roulette); err != nil {
@@ -315,7 +325,7 @@ func (s *RouletteStart) handleWinners(rouletteID int64, color config.Color) erro
 	return nil
 }
 
-func (s *RouletteStart) GetMultiplierByColor(color config.Color) int {
+func (s *RouletteStart) getMultiplierByColor(color config.Color) int {
 	colorConfig, ok := config.RouletteWheelConfig.Colors[color]
 	if !ok {
 		return 0

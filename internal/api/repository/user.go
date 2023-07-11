@@ -66,7 +66,7 @@ func (repo *UserRepository) OutcomeFromUserBalance(userID int64, amount int) err
 
 	now := time.Now()
 
-	const query = "UPDATE user_balances SET balance = balance - ?, updated_at = ? WHERE id = ?"
+	const query = "UPDATE user_balances SET balance = balance - ?, updated_at = ? WHERE user_id = ?"
 	_, err := repo.dbhandler.PrepareAndExecute(query, amount, now, userID)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
@@ -80,7 +80,7 @@ func (repo *UserRepository) IncomeToUserBalance(userID int64, amount int) error 
 
 	now := time.Now()
 
-	const query = "UPDATE user_balances SET balance = balance + ?, updated_at = ? WHERE id = ?"
+	const query = "UPDATE user_balances SET balance = balance + ?, updated_at = ? WHERE user_id = ?"
 	_, err := repo.dbhandler.PrepareAndExecute(query, amount, now, userID)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
@@ -99,8 +99,13 @@ func (repo *UserRepository) CreateUserBalanceTransaction(
 
 	now := time.Now()
 
-	const query = "INSERT INTO user_balance_transactions(user_id, value, type, module, created_at, updated_at) " +
-		"VALUES(?, ?, ?, ?, ?, ?)"
+	const query = "INSERT INTO user_balance_transactions(" +
+		"user_id," +
+		" value," +
+		" type," +
+		" module," +
+		" created_at," +
+		" updated_at) VALUES(?, ?, ?, ?, ?, ?)"
 	_, err := repo.dbhandler.PrepareAndExecute(query, userID, amount, balanceType, game, now, now)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)

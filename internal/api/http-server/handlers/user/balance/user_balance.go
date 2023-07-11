@@ -9,7 +9,6 @@ import (
 	"go-outpost/internal/lib/converter"
 	"go-outpost/internal/lib/logger/sl"
 	"golang.org/x/exp/slog"
-	"strconv"
 )
 
 type Balance struct {
@@ -83,7 +82,7 @@ func (b *Balance) Income(userID int64, amount int, game config.Game) error {
 		Event:   "income-event",
 		Data: map[string]interface{}{
 			"user_uuid":      user.UUID,
-			"amount":         strconv.Itoa(amount),
+			"amount":         converter.ConvertAmountIntToSting(amount),
 			"operation_type": config.Income,
 			"module":         config.Roulette,
 			"balance":        converter.ConvertAmountIntToSting(userBalance.Balance),
@@ -143,7 +142,7 @@ func (b *Balance) Outcome(userID int64, amount int, game config.Game) error {
 		Event:   "outcome-event",
 		Data: map[string]interface{}{
 			"user_uuid":      user.UUID,
-			"amount":         strconv.Itoa(amount),
+			"amount":         converter.ConvertAmountIntToSting(amount),
 			"operation_type": config.Outcome,
 			"module":         config.Roulette,
 			"balance":        converter.ConvertAmountIntToSting(userBalance.Balance),

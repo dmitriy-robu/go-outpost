@@ -120,3 +120,27 @@ func (repo *RouletteRepository) UpdateRoulettePlayedAt(roulette *model.Roulette)
 
 	return nil
 }
+
+func (repo *RouletteRepository) GetPreviousRouletteID(rouletteID int64) (*model.Roulette, error) {
+	const op = "repository.roulette.GetPreviousRoulette"
+
+	const query = "SELECT id FROM roulettes WHERE id = (SELECT id FROM roulettes WHERE id < ? ORDER BY id DESC LIMIT 1)"
+
+	row, err := repo.dbhandler.PrepareAndQueryRow(query, rouletteID)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	roulette := &model.Roulette{}
+
+	err = row.Scan(&roulette.ID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return roulette, nil
+}
