@@ -1,6 +1,7 @@
 package start
 
 import (
+	"database/sql"
 	"fmt"
 	"github.com/go-chi/render"
 	"github.com/google/uuid"
@@ -26,7 +27,7 @@ type RouletteStart struct {
 	event          *event.PusherEvent
 	rouletteRoller *RouletteRoller
 	balance        balance.Interface
-	repo           repository.Repository
+	transaction    repository.Transaction
 }
 
 func NewRouletteStart(
@@ -35,7 +36,7 @@ func NewRouletteStart(
 	rouletteBetRep repository.RouletteBetRepository,
 	eventClient *event.PusherEvent,
 	rouletteRoller *RouletteRoller,
-	repo repository.Repository) *RouletteStart {
+	transaction repository.Transaction) *RouletteStart {
 	return &RouletteStart{
 		log:            log,
 		rouletteRep:    rouletteRep,
@@ -43,7 +44,7 @@ func NewRouletteStart(
 		cache:          cache.New(5*time.Minute, 10*time.Minute),
 		event:          eventClient,
 		rouletteRoller: rouletteRoller,
-		repo:           repo,
+		transaction:    transaction,
 	}
 }
 
@@ -57,13 +58,14 @@ func (s *RouletteStart) New() http.HandlerFunc {
 			roulette              *model.Roulette
 			winColorAndNumberData *RouletteWinColorAndNumberData
 			rouletteID            int64
+			tx                    *sql.Tx
 		)
 
 		log = s.log.With(
 			slog.String("op", op),
 		)
 
-		tx, err := s.repo.StartTransaction()
+		tx, err = s.transaction.StartTransaction()
 		if err != nil {
 			log.Error("failed to start transaction", sl.Err(err))
 
@@ -73,7 +75,7 @@ func (s *RouletteStart) New() http.HandlerFunc {
 		}
 		defer func() {
 			if r := recover(); r != nil {
-				if err = tx.Rollback(); err != nil {
+				if err = s.transaction.RollbackTransaction(tx); err != nil {
 					log.Error("failed to rollback transaction", sl.Err(err))
 
 					return
@@ -94,7 +96,7 @@ func (s *RouletteStart) New() http.HandlerFunc {
 
 			render.JSON(w, r, resp.Error("failed to save roulette", http.StatusInternalServerError))
 
-			if err = tx.Rollback(); err != nil {
+			if err = s.transaction.RollbackTransaction(tx); err != nil {
 				log.Error("failed to rollback transaction", sl.Err(err))
 
 				return
@@ -111,7 +113,7 @@ func (s *RouletteStart) New() http.HandlerFunc {
 
 			render.JSON(w, r, resp.Error("failed to get roulette", http.StatusInternalServerError))
 
-			if err = tx.Rollback(); err != nil {
+			if err = s.transaction.RollbackTransaction(tx); err != nil {
 				log.Error("failed to rollback transaction", sl.Err(err))
 
 				return
@@ -133,7 +135,7 @@ func (s *RouletteStart) New() http.HandlerFunc {
 
 			render.JSON(w, r, resp.Error("failed to send new round event", http.StatusInternalServerError))
 
-			if err = tx.Rollback(); err != nil {
+			if err = s.transaction.RollbackTransaction(tx); err != nil {
 				log.Error("failed to rollback transaction", sl.Err(err))
 
 				return
@@ -150,7 +152,7 @@ func (s *RouletteStart) New() http.HandlerFunc {
 
 			render.JSON(w, r, resp.Error("failed to roll roulette", http.StatusInternalServerError))
 
-			if err = tx.Rollback(); err != nil {
+			if err = s.transaction.RollbackTransaction(tx); err != nil {
 				log.Error("failed to rollback transaction", sl.Err(err))
 
 				return
@@ -168,7 +170,7 @@ func (s *RouletteStart) New() http.HandlerFunc {
 
 			render.JSON(w, r, resp.Error("failed to handle winners", http.StatusInternalServerError))
 
-			if err = tx.Rollback(); err != nil {
+			if err = s.transaction.RollbackTransaction(tx); err != nil {
 				log.Error("failed to rollback transaction", sl.Err(err))
 
 				return
@@ -192,6 +194,14 @@ func (s *RouletteStart) New() http.HandlerFunc {
 		job.Dispatch(&job.SendEventJob{EventMessage: eventMessage, Event: s.event}, delay)
 
 		job.Dispatch(&RouletteStartJob{RouletteStart: s, RouletteID: rouletteID}, delay)
+
+		if err = s.transaction.CommitTransaction(tx); err != nil {
+			log.Error("failed to commit transaction", sl.Err(err))
+
+			render.JSON(w, r, resp.Error("failed to commit transaction", http.StatusInternalServerError))
+
+			return
+		}
 	}
 }
 

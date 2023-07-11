@@ -1,6 +1,7 @@
 package place_bet
 
 import (
+	"database/sql"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/render"
@@ -47,7 +48,7 @@ type Bet struct {
 	betSaver    BetSaver
 	userRep     repository.UserRepository
 	balance     balance.Interface
-	repo        repository.Repository
+	transaction repository.Transaction
 }
 
 func NewBet(
@@ -56,7 +57,7 @@ func NewBet(
 	betSaver BetSaver,
 	userRep repository.UserRepository,
 	balance balance.Interface,
-	repo repository.Repository) *Bet {
+	transaction repository.Transaction) *Bet {
 	return &Bet{
 		log:         log,
 		validator:   validator.New(),
@@ -64,7 +65,7 @@ func NewBet(
 		betSaver:    betSaver,
 		userRep:     userRep,
 		balance:     balance,
-		repo:        repo,
+		transaction: transaction,
 	}
 }
 
@@ -84,6 +85,7 @@ func (b *Bet) New() http.HandlerFunc {
 			id              int64
 			convertedAmount int
 			userBalance     *model.UserBalance
+			tx              *sql.Tx
 		)
 
 		log = b.log.With(
@@ -91,7 +93,7 @@ func (b *Bet) New() http.HandlerFunc {
 			slog.String("request_id", middleware.GetReqID(r.Context())),
 		)
 
-		tx, err := b.repo.StartTransaction()
+		tx, err = b.transaction.StartTransaction()
 		if err != nil {
 			log.Error("failed to start transaction", sl.Err(err))
 
@@ -101,7 +103,7 @@ func (b *Bet) New() http.HandlerFunc {
 		}
 		defer func() {
 			if r := recover(); r != nil {
-				if err = tx.Rollback(); err != nil {
+				if err = b.transaction.RollbackTransaction(tx); err != nil {
 					log.Error("failed to rollback transaction", sl.Err(err))
 
 					return
@@ -109,8 +111,7 @@ func (b *Bet) New() http.HandlerFunc {
 			}
 		}()
 
-		err = render.DecodeJSON(r.Body, &req)
-		if err != nil {
+		if err = render.DecodeJSON(r.Body, &req); err != nil {
 			log.Error("failed to decode request body", sl.Err(err))
 
 			render.JSON(w, r, resp.Error("failed to decode request body", http.StatusBadRequest))
@@ -222,7 +223,7 @@ func (b *Bet) New() http.HandlerFunc {
 
 			render.JSON(w, r, resp.Error("failed to update user balance", http.StatusInternalServerError))
 
-			if err = tx.Rollback(); err != nil {
+			if err = b.transaction.RollbackTransaction(tx); err != nil {
 				log.Error("failed to rollback transaction", sl.Err(err))
 
 				return
@@ -247,7 +248,7 @@ func (b *Bet) New() http.HandlerFunc {
 
 				render.JSON(w, r, resp.Error("failed to save bet", http.StatusInternalServerError))
 
-				if err = tx.Rollback(); err != nil {
+				if err = b.transaction.RollbackTransaction(tx); err != nil {
 					log.Error("failed to rollback transaction", sl.Err(err))
 
 					return
@@ -257,6 +258,14 @@ func (b *Bet) New() http.HandlerFunc {
 			}
 
 			log.Info("bet saved", slog.Any("id", id))
+		}
+
+		if err = b.transaction.CommitTransaction(tx); err != nil {
+			log.Error("failed to commit transaction", sl.Err(err))
+
+			render.JSON(w, r, resp.Error("failed to commit transaction", http.StatusInternalServerError))
+
+			return
 		}
 
 		responseOK(w, r)
